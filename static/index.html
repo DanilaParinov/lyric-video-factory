@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lyric Video Factory</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+
+:root {
+  --bg:      #0d1117;
+  --surface: #161b22;
+  --border:  #30363d;
+  --text:    #e6edf3;
+  --muted:   #7d8590;
+  --blue:    #388bfd;
+  --green:   #3fb950;
+  --yellow:  #d29922;
+  --red:     #f85149;
+  --radius:  6px;
+}
+
+body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+
+header {
+  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+header h1 { font-size: 16px; font-weight: 600; }
+header span { color: var(--muted); font-size: 12px; }
+
+main {
+  max-width: 860px; margin: 0 auto; padding: 24px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+
+/* ── Cards ───────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.card-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted); margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ── Buttons ─────────────────────────────── */
+button, .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: #21262d; color: var(--text); font-size: 13px; cursor: pointer;
+  text-decoration: none; transition: background .15s, border-color .15s;
+}
+button:hover, .btn:hover { background: #30363d; }
+button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+button.primary:hover { background: #1f6feb; border-color: #1f6feb; }
+button.danger:hover { border-color: var(--red); color: var(--red); }
+button:disabled { opacity: .5; cursor: default; }
+
+/* ── Inputs ──────────────────────────────── */
+input[type=text], input[type=number] {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 6px 10px; font-size: 13px; font-family: monospace;
+}
+input[type=text] { width: 100%; }
+input[type=number] { width: 80px; }
+input:focus { outline: none; border-color: var(--blue); }
+
+/* ── Generate: template loader ───────────── */
+.tmpl-loader { display: flex; gap: 6px; align-items: center; }
+.tmpl-loader input { width: 200px; font-size: 12px; padding: 4px 8px; }
+
+/* ── Timings tables ──────────────────────── */
+.section-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--muted); margin: 14px 0 6px;
+}
+.timings-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.timings-table th {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--muted);
+  padding: 0 6px 6px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.timings-table td { padding: 2px 4px; border-bottom: 1px solid rgba(48,54,61,.6); vertical-align: middle; }
+.timings-table tbody tr:last-child td { border-bottom: none; }
+.td-num { width: 24px; text-align: right; color: var(--muted); font-size: 11px; padding-right: 8px !important; }
+.td-text input[type=text]   { font-size: 13px; font-family: system-ui,sans-serif; padding: 3px 7px; }
+.td-time input[type=number] { width: 80px; padding: 3px 6px; font-size: 12px; }
+.td-del { width: 28px; text-align: center; }
+.del-btn {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: 2px 5px; font-size: 15px; line-height: 1; border-radius: 3px;
+}
+.del-btn:hover { color: var(--red); background: rgba(248,81,73,.1); }
+.add-row-btn {
+  font-size: 12px; padding: 3px 10px; margin-top: 5px;
+  background: transparent; border-color: var(--border); color: var(--muted);
+}
+.add-row-btn:hover { color: var(--text); }
+
+/* ── Generate: controls bar ──────────────── */
+.gen-controls {
+  display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.gen-field { display: flex; flex-direction: column; gap: 4px; }
+.gen-field label { font-size: 11px; color: var(--muted); }
+
+/* ── Status pill ─────────────────────────── */
+.status { font-size: 12px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.status.pending  { color: var(--yellow); background: #2d2505; }
+.status.running  { color: var(--blue);   background: #0c1f40; }
+.status.done     { color: var(--green);  background: #0a2c14; }
+.status.error    { color: var(--red);    background: #2c0a0a; }
+
+/* ── Job card ────────────────────────────── */
+.job { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-top: 10px; }
+.job-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.job-id   { font-family: monospace; font-size: 12px; color: var(--muted); }
+.job-meta { margin-left: auto; font-size: 12px; color: var(--muted); }
+.job-error { margin-top: 8px; font-size: 12px; color: var(--red); font-family: monospace; white-space: pre-wrap; }
+.job-results { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.job-progress { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+/* ── File info (audio / font) ────────────── */
+.file-info {
+  font-family: monospace; font-size: 12px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-info.loaded { color: var(--text); }
+
+/* ── Pool ────────────────────────────────── */
+.pool-dropzone {
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  padding: 14px 16px; text-align: center; font-size: 13px; color: var(--muted);
+  transition: border-color .2s, color .2s;
+}
+.pool-dropzone.over { border-color: var(--blue); color: var(--text); }
+
+.pool-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+
+.pool-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;
+  max-height: 260px; overflow-y: auto; margin-top: 12px;
+}
+.clip {
+  position: relative;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 10px;
+}
+.clip-name { font-size: 12px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip-dur  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.clip-del  {
+  display: none; position: absolute; top: 3px; right: 4px;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: 0 2px; font-size: 13px; line-height: 1; border-radius: 3px;
+}
+.clip:hover .clip-del { display: block; }
+.clip-del:hover { color: var(--red); }
+
+/* ── Misc ────────────────────────────────── */
+.muted { color: var(--muted); font-size: 13px; }
+.msg { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+.msg.ok  { color: var(--green); }
+.msg.err { color: var(--red); }
+.spinner { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lyric Video Factory</h1>
+  <span>генератор lyric video</span>
+  <button class="danger" style="margin-left:auto" onclick="stopServer()">Остановить сервер</button>
+</header>
+
+<main>
+
+  <!-- ── Генерация ─────────────────────────── -->
+  <div class="card">
+    <div class="card-title">
+      Генерация
+      <div class="tmpl-loader">
+        <input type="text" id="template-path" value="template.json" placeholder="путь к шаблону"
+               onkeydown="if(event.key==='Enter') loadTemplate()">
+        <button onclick="loadTemplate()">Загрузить</button>
+        <button id="btn-export" onclick="exportTemplate()" disabled title="Скачать текущий шаблон как JSON">Скачать JSON</button>
+      </div>
+    </div>
+
+    <p class="muted" id="no-tmpl-hint">Загрузите шаблон для редактирования таймингов.</p>
+
+    <div id="timings-editor" hidden>
+      <div class="section-label">Лирика</div>
+      <table class="timings-table">
+        <thead>
+          <tr>
+            <th class="td-num"></th>
+            <th>Текст</th>
+            <th style="width:88px">Начало</th>
+            <th style="width:88px">Конец</th>
+            <th class="td-del"></th>
+          </tr>
+        </thead>
+        <tbody id="texts-body"></tbody>
+      </table>
+      <button class="add-row-btn" onclick="addTextRow()">+ строка</button>
+
+      <div class="section-label">Видео-сегменты</div>
+      <table class="timings-table">
+        <thead>
+          <tr>
+            <th class="td-num"></th>
+            <th style="width:88px">Начало</th>
+            <th style="width:88px">Конец</th>
+            <th class="td-del"></th>
+          </tr>
+        </thead>
+        <tbody id="segs-body"></tbody>
+      </table>
+      <button class="add-row-btn" onclick="addSegRow()">+ сегмент</button>
+    </div>
+
+    <div class="gen-controls">
+      <div class="gen-field">
+        <label>Вариантов</label>
+        <input type="number" id="n-variants" value="1" min="1" max="99">
+      </div>
+      <div class="gen-field">
+        <label>Затемнение&ensp;<span id="dim-display" style="color:var(--text)">30%</span></label>
+        <input type="range" id="dim-level" min="0" max="100" value="30"
+               style="width:100px;accent-color:var(--blue)"
+               oninput="document.getElementById('dim-display').textContent=this.value+'%'">
+      </div>
+      <button class="primary" id="btn-generate" onclick="startJob()" disabled>Запустить</button>
+    </div>
+    <div class="msg" id="gen-msg"></div>
+  </div>
+
+  <!-- ── Задачи ────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">
+      Задачи
+    </div>
+    <div id="jobs-list"><p class="muted">Задач пока нет.</p></div>
+  </div>
+
+  <!-- ── Аудио + Шрифт ─────────────────────── -->
+  <div class="card-row">
+
+    <div class="card">
+      <div class="card-title">
+        Аудио
+        <label class="btn" style="cursor:pointer">
+          Загрузить
+          <input type="file" accept=".wav,.mp3,.aac,.m4a,audio/*" style="display:none"
+                 onchange="uploadSingle('audio', this, 'audio-file', 'audio-msg')">
+        </label>
+      </div>
+      <div class="file-info" id="audio-file">обнаруживается автоматически</div>
+      <div class="msg" id="audio-msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Шрифт
+        <label class="btn" style="cursor:pointer">
+          Загрузить
+          <input type="file" accept=".otf,.ttf" style="display:none"
+                 onchange="uploadSingle('font', this, 'font-file', 'font-msg')">
+        </label>
+      </div>
+      <div class="file-info" id="font-file">SF-Pro-Display-Thin.otf</div>
+      <div class="msg" id="font-msg"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Пул видеоклипов ───────────────────── -->
+  <div class="card">
+    <div class="card-title">
+      Пул клипов <span id="pool-count" style="font-weight:400;text-transform:none;letter-spacing:0"></span>
+      <button class="danger" onclick="clearPool()">Очистить</button>
+    </div>
+
+    <div class="pool-dropzone" id="pool-dropzone"
+         ondragover="poolDragOver(event)" ondragleave="poolDragLeave()" ondrop="poolDrop(event)">
+      Перетащите видеофайлы сюда
+    </div>
+    <div class="pool-actions">
+      <label class="btn" style="cursor:pointer">
+        Выбрать файлы
+        <input type="file" accept=".mp4,.mov,.avi,.mkv,.webm,.m4v,.flv,.wmv,video/*" multiple
+               style="display:none" onchange="poolUpload(this.files); this.value=''">
+      </label>
+      <label class="btn" style="cursor:pointer">
+        Выбрать папку
+        <input type="file" webkitdirectory style="display:none"
+               onchange="poolUpload(this.files); this.value=''">
+      </label>
+      <div class="msg" id="pool-msg" style="margin-top:0;flex:1"></div>
+    </div>
+
+    <div class="pool-grid" id="pool-grid"><p class="muted">Загрузка...</p></div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────
+const state = { template: null, pollTimer: null };
+
+const VIDEO_EXTS = new Set(['.mp4','.mov','.avi','.mkv','.webm','.m4v','.flv','.wmv']);
+
+// ── Bootstrap ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadTemplate(true);
+  loadJobs();
+  loadPool();
+});
+
+// ── API helper ─────────────────────────────────────
+async function apiFetch(url, opts = {}) {
+  const r = await fetch(url, opts);
+  if (!r.ok) { const b = await r.text(); throw new Error(b || r.statusText); }
+  return r.json();
+}
+
+// ── Template ───────────────────────────────────────
+async function loadTemplate(silent = false) {
+  const path = document.getElementById('template-path').value.trim();
+  if (!path) return;
+  try {
+    const t = await apiFetch('/api/template?path=' + encodeURIComponent(path));
+    state.template = t;
+    renderTextsTable(t.texts || []);
+    renderSegsTable(t.video_segments || []);
+    const pct = Math.round((t.dim_level || 0) * 100);
+    document.getElementById('dim-level').value = pct;
+    document.getElementById('dim-display').textContent = pct + '%';
+    if (t.audio)            setFileInfo('audio-file', t.audio);
+    if (t.font && t.font.file) setFileInfo('font-file', t.font.file);
+    document.getElementById('no-tmpl-hint').hidden = true;
+    document.getElementById('timings-editor').hidden = false;
+    document.getElementById('btn-generate').disabled = false;
+    document.getElementById('btn-export').disabled = false;
+    if (!silent) setMsg('gen-msg', 'Шаблон загружен', 'ok');
+  } catch (e) {
+    if (!silent) setMsg('gen-msg', e.message, 'err');
+  }
+}
+
+function setFileInfo(id, path) {
+  const el = document.getElementById(id);
+  el.textContent = path.replace(/\\/g, '/').split('/').pop();
+  el.classList.add('loaded');
+  el.title = path;
+}
+
+function exportTemplate() {
+  if (!state.template) return;
+  const dimLevel = parseInt(document.getElementById('dim-level').value) / 100;
+  const data = { ...state.template, texts: collectTexts(), video_segments: collectSegs(), dim_level: dimLevel };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob), download: 'template.json'
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Texts table ────────────────────────────────────
+function renderTextsTable(texts) {
+  document.getElementById('texts-body').innerHTML = '';
+  texts.forEach(tc => appendTextRow(tc));
+}
+function addTextRow() {
+  const rows = collectTexts(), last = rows[rows.length - 1];
+  appendTextRow({ text: '', start: last ? last.end : 0, end: last ? last.end + 2 : 2 });
+}
+function appendTextRow(tc) {
+  const tbody = document.getElementById('texts-body');
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    `<td class="td-num">${tbody.children.length + 1}</td>` +
+    `<td class="td-text"><input type="text" value="${escAttr(tc.text || '')}"></td>` +
+    `<td class="td-time"><input type="number" value="${ft(tc.start)}" step="0.001" min="0"></td>` +
+    `<td class="td-time"><input type="number" value="${ft(tc.end)}"   step="0.001" min="0"></td>` +
+    `<td class="td-del"><button class="del-btn" onclick="removeRow(this,'texts-body')" title="Удалить">×</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// ── Segs table ─────────────────────────────────────
+function renderSegsTable(segs) {
+  document.getElementById('segs-body').innerHTML = '';
+  segs.forEach(s => appendSegRow(s));
+}
+function addSegRow() {
+  const rows = collectSegs(), last = rows[rows.length - 1];
+  appendSegRow({ start: last ? last.end : 0, end: last ? last.end + 1 : 1 });
+}
+function appendSegRow(seg) {
+  const tbody = document.getElementById('segs-body');
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    `<td class="td-num">${tbody.children.length + 1}</td>` +
+    `<td class="td-time"><input type="number" value="${ft(seg.start)}" step="0.001" min="0"></td>` +
+    `<td class="td-time"><input type="number" value="${ft(seg.end)}"   step="0.001" min="0"></td>` +
+    `<td class="td-del"><button class="del-btn" onclick="removeRow(this,'segs-body')" title="Удалить">×</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function removeRow(btn, tbodyId) {
+  btn.closest('tr').remove();
+  document.querySelectorAll(`#${tbodyId} tr .td-num`).forEach((td, i) => { td.textContent = i + 1; });
+}
+
+function collectTexts() {
+  return Array.from(document.querySelectorAll('#texts-body tr')).map(tr => {
+    const [text, start, end] = tr.querySelectorAll('input');
+    return { text: text.value, start: parseFloat(start.value) || 0, end: parseFloat(end.value) || 0 };
+  });
+}
+function collectSegs() {
+  return Array.from(document.querySelectorAll('#segs-body tr')).map(tr => {
+    const [start, end] = tr.querySelectorAll('input');
+    return { start: parseFloat(start.value) || 0, end: parseFloat(end.value) || 0 };
+  });
+}
+
+// ── Generate ───────────────────────────────────────
+async function startJob() {
+  if (!state.template) { setMsg('gen-msg', 'Сначала загрузите шаблон', 'err'); return; }
+  const n        = parseInt(document.getElementById('n-variants').value) || 1;
+  const dimLevel = parseInt(document.getElementById('dim-level').value) / 100;
+  const btn      = document.getElementById('btn-generate');
+  const tmplData = { ...state.template, texts: collectTexts(), video_segments: collectSegs(), dim_level: dimLevel };
+  setMsg('gen-msg', '', '');
+  btn.disabled = true;
+  try {
+    const job = await apiFetch('/api/jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_data: tmplData, n, dim_level: dimLevel }),
+    });
+    setMsg('gen-msg', `Задача запущена: ${job.id}`, 'ok');
+    loadJobs();
+  } catch (e) {
+    setMsg('gen-msg', e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Jobs ───────────────────────────────────────────
+async function loadJobs() {
+  try {
+    const jobs = await apiFetch('/api/jobs');
+    jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    renderJobs(jobs);
+    ensurePolling(jobs);
+  } catch (e) { console.error('loadJobs:', e); }
+}
+function renderJobs(jobs) {
+  const el = document.getElementById('jobs-list');
+  if (!jobs.length) { el.innerHTML = '<p class="muted">Задач пока нет.</p>'; return; }
+  el.innerHTML = jobs.map(j => `
+    <div class="job">
+      <div class="job-head">
+        <code class="job-id">${j.id}</code>
+        <span class="status ${j.status}">${j.status}</span>
+        <span class="job-meta">${j.n} вар. · ${timeAgo(j.created_at)}</span>
+      </div>
+      ${j.status === 'running' || j.status === 'pending'
+        ? `<div class="job-progress"><span class="spinner">⟳</span> генерирую...</div>` : ''}
+      ${j.error ? `<div class="job-error">${escHtml(j.error)}</div>` : ''}
+      ${(j.results || []).length
+        ? `<div class="job-results">${j.results.map(f =>
+            `<a class="btn" href="/api/jobs/${j.id}/results/${f}" download="${f}">↓ ${f}</a>`
+          ).join('')}</div>` : ''}
+    </div>`).join('');
+}
+function ensurePolling(jobs) {
+  const active = jobs.some(j => j.status === 'pending' || j.status === 'running');
+  if (active && !state.pollTimer) {
+    state.pollTimer = setInterval(async () => {
+      const jobs = await apiFetch('/api/jobs').catch(() => []);
+      jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      renderJobs(jobs);
+      if (!jobs.some(j => j.status === 'pending' || j.status === 'running')) {
+        clearInterval(state.pollTimer); state.pollTimer = null;
+      }
+    }, 2000);
+  }
+}
+
+// ── Audio / Font upload ────────────────────────────
+async function uploadSingle(type, input, fileElId, msgElId) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  setMsg(msgElId, 'Загружаю…', '');
+  try {
+    const fd = new FormData();
+    fd.append('file', file); fd.append('type', type);
+    const r = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    const res = await r.json();
+    setFileInfo(fileElId, res.path);
+    if (state.template) {
+      if (type === 'audio') state.template.audio = res.path;
+      if (type === 'font' && state.template.font) state.template.font.file = res.path;
+    }
+    setMsg(msgElId, 'Загружено', 'ok');
+  } catch (e) {
+    setMsg(msgElId, e.message, 'err');
+  }
+}
+
+// ── Pool ───────────────────────────────────────────
+function poolDragOver(e) { e.preventDefault(); document.getElementById('pool-dropzone').classList.add('over'); }
+function poolDragLeave() { document.getElementById('pool-dropzone').classList.remove('over'); }
+async function poolDrop(e) {
+  e.preventDefault();
+  document.getElementById('pool-dropzone').classList.remove('over');
+  const files = await readDroppedItems(e.dataTransfer);
+  poolUpload(files);
+}
+
+// Рекурсивно читает файлы из DataTransfer, включая содержимое директорий.
+async function readDroppedItems(dataTransfer) {
+  const files = [];
+  const items = Array.from(dataTransfer.items);
+  if (!items.length) return Array.from(dataTransfer.files);
+
+  async function readEntry(entry) {
+    if (entry.isFile) {
+      await new Promise(resolve => entry.file(f => { files.push(f); resolve(); }));
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise(resolve => reader.readEntries(resolve));
+        for (const child of batch) await readEntry(child);
+      } while (batch.length > 0);
+    }
+  }
+
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+    if (entry) await readEntry(entry);
+    else if (item.kind === 'file') files.push(item.getAsFile());
+  }
+  return files;
+}
+
+async function poolUpload(files) {
+  const arr = Array.from(files).filter(f => {
+    const ext = '.' + f.name.split('.').pop().toLowerCase();
+    return f.type.startsWith('video/') || VIDEO_EXTS.has(ext);
+  });
+  if (!arr.length) { setMsg('pool-msg', 'Нет подходящих видеофайлов', 'err'); return; }
+  let done = 0;
+  setMsg('pool-msg', `Загружаю 0/${arr.length}…`, '');
+  for (const file of arr) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file); fd.append('type', 'video');
+      const r = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      done++;
+      setMsg('pool-msg', `Загружаю ${done}/${arr.length}…`, '');
+    } catch (e) {
+      setMsg('pool-msg', `Ошибка: ${e.message}`, 'err'); return;
+    }
+  }
+  setMsg('pool-msg', `Загружено ${done} клип(ов)`, 'ok');
+  loadPool();
+}
+
+async function clearPool() {
+  if (!confirm('Удалить все загруженные клипы из пула?')) return;
+  try {
+    const res = await apiFetch('/api/pool', { method: 'DELETE' });
+    setMsg('pool-msg', `Удалено ${res.deleted} клип(ов)`, 'ok');
+    loadPool();
+  } catch (e) {
+    setMsg('pool-msg', e.message, 'err');
+  }
+}
+
+async function deleteClip(name) {
+  try {
+    await apiFetch('/api/pool/clip?name=' + encodeURIComponent(name), { method: 'DELETE' });
+    loadPool();
+  } catch (e) {
+    setMsg('pool-msg', e.message, 'err');
+  }
+}
+
+async function loadPool() {
+  document.getElementById('pool-grid').innerHTML = '<p class="muted">Загрузка...</p>';
+  try {
+    const clips = await apiFetch('/api/pool');
+    document.getElementById('pool-count').textContent = clips.length ? `(${clips.length})` : '';
+    const grid = document.getElementById('pool-grid');
+    if (!clips.length) { grid.innerHTML = '<p class="muted">Пул пуст.</p>'; return; }
+    grid.innerHTML = clips.map(c => `
+      <div class="clip">
+        <button class="clip-del" data-name="${escAttr(c.name)}" onclick="deleteClip(this.dataset.name)" title="Удалить">×</button>
+        <div class="clip-name" title="${escHtml(c.name)}">${escHtml(c.name)}</div>
+        <div class="clip-dur">${c.duration ? fmtDur(c.duration) : '—'}</div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('pool-grid').innerHTML = `<p class="muted">${escHtml(e.message)}</p>`;
+  }
+}
+
+// ── Server control ─────────────────────────────────
+async function stopServer() {
+  if (!confirm('Остановить сервер?')) return;
+  try {
+    await fetch('/api/shutdown', { method: 'POST' });
+  } catch (_) { /* соединение оборвётся — это нормально */ }
+  document.body.innerHTML = '<p style="padding:40px;color:#7d8590;font:14px system-ui">Сервер остановлен.</p>';
+}
+
+// ── Helpers ────────────────────────────────────────
+function setMsg(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+}
+function timeAgo(iso) {
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  if (s < 60)   return `${s}с назад`;
+  if (s < 3600) return `${Math.floor(s / 60)}м назад`;
+  return `${Math.floor(s / 3600)}ч назад`;
+}
+function fmtDur(s) {
+  if (s >= 60) return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  return `${s.toFixed(1)}с`;
+}
+function ft(v)       { return (parseFloat(v) || 0).toFixed(4); }
+function escHtml(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s)  { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+</script>
+</body>
+</html>

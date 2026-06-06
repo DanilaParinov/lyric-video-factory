@@ -27,6 +27,17 @@ go.work.sum
 # env file
 .env
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Generated videos
+output/
+
+# Uploaded media
+uploads/
+
+# Input media (large files)
+input/*.mp4
+input/*.mov
+input/*.avi
+
+Editor/IDE
+.idea/
+.vscode/

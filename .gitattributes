@@ -1,0 +1,16 @@
+# Автоматически для большинства файлов
+* text=auto
+
+# Всегда LF (скрипты, конфиги)
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+
+# Всегда CRLF (если есть файлы только для Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Бинарники — не трогать
+*.png binary
+*.jpg binary
+*.zip binary

@@ -1,0 +1,22 @@
+{
+  "audio": "audio.wav",
+  "output": "output.mp4",
+  "videos": [
+    { "file": "video1.mp4", "start": 7.225,  "end": 8.493  },
+    { "file": "video2.mp4", "start": 8.493,  "end": 10.053  },
+    { "file": "video3.mp4", "start": 10.053,  "end": 12.095  },
+    { "file": "video4.mp4", "start": 12.095,  "end": 13.487 },
+    { "file": "video5.mp4", "start": 13.487, "end": 15.575 },
+    { "file": "video6.mp4", "start": 15.575, "end": 16.775 }
+  ],
+  "texts": [
+    { "text": "тихие слова",   "start": 0,    "end": 3.2483  },
+    { "text": "так много значат",  "start": 3.2483,  "end": 5.4473  },
+    { "text": "говори мне только",   "start": 5.4473,  "end": 7.2253  },
+    { "text": "правду",  "start": 7.2253,  "end": 8.2443  },
+    { "text": "смотри в мои глаза",   "start": 8.2443,  "end": 11.7493 },
+    { "text": "держу тебя крепче",   "start": 11.7493, "end": 13.8213 },
+    { "text": "запомню навсегда", "start": 13.8213, "end": 16.6083 },
+    { "text": "наши тайные встречи",  "start": 16.6083, "end": 18.3952 }
+  ]
+}
