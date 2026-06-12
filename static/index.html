@@ -72,6 +72,18 @@ input:focus { outline: none; border-color: var(--blue); }
 .tmpl-loader { display: flex; gap: 6px; align-items: center; }
 .tmpl-loader input { width: 200px; font-size: 12px; padding: 4px 8px; }
 
+/* ── Paste area ──────────────────────────── */
+.paste-area { margin-top: 10px; }
+.paste-area textarea {
+  width: 100%; height: 110px; resize: vertical;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); padding: 8px 10px; font: 12px/1.5 monospace;
+  display: block;
+}
+.paste-area textarea:focus { outline: none; border-color: var(--blue); }
+.paste-area textarea::placeholder { color: var(--muted); }
+.paste-area-actions { display: flex; gap: 6px; margin-top: 6px; }
+
 /* ── Timings tables ──────────────────────── */
 .section-label {
   font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -184,10 +196,22 @@ input:focus { outline: none; border-color: var(--blue); }
     <div class="card-title">
       Генерация
       <div class="tmpl-loader">
-        <input type="text" id="template-path" value="template.json" placeholder="путь к шаблону"
-               onkeydown="if(event.key==='Enter') loadTemplate()">
-        <button onclick="loadTemplate()">Загрузить</button>
+        <label class="btn" style="cursor:pointer">
+          Открыть файл
+          <input type="file" accept=".json" style="display:none" onchange="openTemplateFile(this)">
+        </label>
+        <button onclick="togglePasteArea()" id="btn-paste">Вставить JSON</button>
         <button id="btn-export" onclick="exportTemplate()" disabled title="Скачать текущий шаблон как JSON">Скачать JSON</button>
+      </div>
+    </div>
+
+    <div class="paste-area" id="paste-area" hidden>
+      <textarea id="paste-json" placeholder="Вставьте JSON шаблона (нативный или Creatomate)…"
+                onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter') applyPastedTemplate()"></textarea>
+      <div class="paste-area-actions">
+        <button class="primary" onclick="applyPastedTemplate()">Применить</button>
+        <button onclick="document.getElementById('paste-json').value=''">Очистить</button>
+        <button onclick="togglePasteArea()">Отмена</button>
       </div>
     </div>
 
@@ -317,7 +341,7 @@ const VIDEO_EXTS = new Set(['.mp4','.mov','.avi','.mkv','.webm','.m4v','.flv','.
 
 // ── Bootstrap ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  loadTemplate(true);
+  loadTemplate('template.json', true);
   loadJobs();
   loadPool();
 });
@@ -330,26 +354,83 @@ async function apiFetch(url, opts = {}) {
 }
 
 // ── Template ───────────────────────────────────────
-async function loadTemplate(silent = false) {
-  const path = document.getElementById('template-path').value.trim();
-  if (!path) return;
+async function loadTemplate(path, silent = false) {
   try {
     const t = await apiFetch('/api/template?path=' + encodeURIComponent(path));
-    state.template = t;
-    renderTextsTable(t.texts || []);
-    renderSegsTable(t.video_segments || []);
-    const pct = Math.round((t.dim_level || 0) * 100);
-    document.getElementById('dim-level').value = pct;
-    document.getElementById('dim-display').textContent = pct + '%';
-    if (t.audio)            setFileInfo('audio-file', t.audio);
-    if (t.font && t.font.file) setFileInfo('font-file', t.font.file);
-    document.getElementById('no-tmpl-hint').hidden = true;
-    document.getElementById('timings-editor').hidden = false;
-    document.getElementById('btn-generate').disabled = false;
-    document.getElementById('btn-export').disabled = false;
-    if (!silent) setMsg('gen-msg', 'Шаблон загружен', 'ok');
+    applyTemplate(t);
+    if (!silent) setMsg('gen-msg', 'Шаблон загружен: ' + path.split(/[\\/]/).pop(), 'ok');
   } catch (e) {
     if (!silent) setMsg('gen-msg', e.message, 'err');
+  }
+}
+
+function openTemplateFile(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const t = await apiFetch('/api/template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: e.target.result,
+      });
+      applyTemplate(t);
+      setMsg('gen-msg', 'Шаблон загружен: ' + file.name, 'ok');
+    } catch (err) {
+      setMsg('gen-msg', err.message, 'err');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function applyTemplate(t) {
+  state.template = t;
+  renderTextsTable(t.texts || []);
+  renderSegsTable(t.video_segments || []);
+  const pct = Math.round((t.dim_level || 0) * 100);
+  document.getElementById('dim-level').value = pct;
+  document.getElementById('dim-display').textContent = pct + '%';
+  if (t.audio)               setFileInfo('audio-file', t.audio);
+  if (t.font && t.font.file) setFileInfo('font-file', t.font.file);
+  document.getElementById('no-tmpl-hint').hidden = true;
+  document.getElementById('timings-editor').hidden = false;
+  document.getElementById('btn-generate').disabled = false;
+  document.getElementById('btn-export').disabled = false;
+}
+
+function togglePasteArea() {
+  const area = document.getElementById('paste-area');
+  area.hidden = !area.hidden;
+  if (!area.hidden) {
+    // Сразу пробуем прочитать из буфера
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(text => {
+        if (text.trim().startsWith('{')) {
+          document.getElementById('paste-json').value = text;
+        }
+      }).catch(() => {});
+    }
+    document.getElementById('paste-json').focus();
+  }
+}
+
+async function applyPastedTemplate() {
+  const text = document.getElementById('paste-json').value.trim();
+  if (!text) { setMsg('gen-msg', 'Нет текста для вставки', 'err'); return; }
+  try {
+    const t = await apiFetch('/api/template', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: text,
+    });
+    applyTemplate(t);
+    setMsg('gen-msg', 'Шаблон применён из буфера', 'ok');
+    document.getElementById('paste-area').hidden = true;
+    document.getElementById('paste-json').value = '';
+  } catch (e) {
+    setMsg('gen-msg', e.message, 'err');
   }
 }
 

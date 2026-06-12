@@ -127,7 +127,8 @@ func (s *Server) handleDeleteClip(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, map[string]string{"removed": name})
 }
 
-// --- GET /api/template ---
+// --- GET /api/template  (загрузить по пути на диске) ---
+// --- POST /api/template (распарсить сырой JSON из тела) ---
 
 func (s *Server) handleGetTemplate(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
@@ -140,6 +141,23 @@ func (s *Server) handleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := tmpl.Parse(path)
+	if err != nil {
+		jsonErr(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if t.Audio == "" {
+		t.Audio = tmpl.FindAudio(filepath.Join(uploadDir, "audio"), inputDir)
+	}
+	jsonResp(w, http.StatusOK, t)
+}
+
+func (s *Server) handleParseTemplate(w http.ResponseWriter, r *http.Request) {
+	data, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		jsonErr(w, "читаю тело: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	t, err := tmpl.ParseData(data)
 	if err != nil {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return

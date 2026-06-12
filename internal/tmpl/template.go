@@ -37,6 +37,19 @@ type TextCue struct {
 	End   float64 `json:"end"`
 }
 
+// ParseData парсит шаблон из сырых байт JSON (нативный формат или Creatomate).
+func ParseData(data []byte) (*Template, error) {
+	t, err := parseAuto(data)
+	if err != nil {
+		return nil, err
+	}
+	ApplyDefaults(t)
+	if err := t.Validate(); err != nil {
+		return nil, fmt.Errorf("валидация шаблона: %w", err)
+	}
+	return t, nil
+}
+
 func Parse(path string) (*Template, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
