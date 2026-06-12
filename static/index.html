@@ -572,9 +572,14 @@ function renderJobs(jobs) {
         ? `<div class="job-progress"><span class="spinner">⟳</span> генерирую...</div>` : ''}
       ${j.error ? `<div class="job-error">${escHtml(j.error)}</div>` : ''}
       ${(j.results || []).length
-        ? `<div class="job-results">${j.results.map(f =>
-            `<a class="btn" href="/api/jobs/${j.id}/results/${f}" download="${f}">↓ ${f}</a>`
-          ).join('')}</div>` : ''}
+        ? `<div class="job-results">
+            ${j.results.length > 1
+              ? `<a class="btn primary" href="/api/jobs/${j.id}/download" download="results.zip">↓ Скачать все</a>`
+              : ''}
+            ${j.results.map(f =>
+              `<a class="btn" href="/api/jobs/${j.id}/results/${f}" download="${f}">↓ ${f}</a>`
+            ).join('')}
+          </div>` : ''}
     </div>`).join('');
 }
 function ensurePolling(jobs) {

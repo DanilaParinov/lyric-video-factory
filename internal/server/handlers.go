@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"io"
 	"log"
@@ -216,6 +217,45 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, http.StatusOK, job.Snapshot())
+}
+
+// --- GET /api/jobs/{id}/download ---
+
+func (s *Server) handleDownloadAll(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	job, ok := s.jobs.get(id)
+	if !ok {
+		jsonErr(w, "задача не найдена", http.StatusNotFound)
+		return
+	}
+	snap := job.Snapshot()
+	if snap.Status != StatusDone {
+		jsonErr(w, "задача ещё не завершена", http.StatusConflict)
+		return
+	}
+	if len(snap.Results) == 0 {
+		jsonErr(w, "нет файлов для скачивания", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", `attachment; filename="results.zip"`)
+	w.Header().Set("Content-Type", "application/zip")
+
+	zw := zip.NewWriter(w)
+	for _, name := range snap.Results {
+		f, err := os.Open(filepath.Join(outputDir, id, name))
+		if err != nil {
+			continue
+		}
+		fw, err := zw.Create(name)
+		if err != nil {
+			f.Close()
+			continue
+		}
+		io.Copy(fw, f)
+		f.Close()
+	}
+	zw.Close()
 }
 
 // --- GET /api/jobs/{id}/results/{file} ---

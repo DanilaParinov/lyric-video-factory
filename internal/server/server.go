@@ -59,6 +59,7 @@ func (s *Server) Run() error {
 	mux.HandleFunc("POST /api/jobs", s.handleCreateJob)
 	mux.HandleFunc("GET /api/jobs", s.handleListJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", s.handleGetJob)
+	mux.HandleFunc("GET /api/jobs/{id}/download", s.handleDownloadAll)
 	mux.HandleFunc("GET /api/jobs/{id}/results/{file}", s.handleDownloadResult)
 	mux.HandleFunc("POST /api/shutdown", s.handleShutdown)
 
