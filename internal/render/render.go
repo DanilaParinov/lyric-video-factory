@@ -72,8 +72,8 @@ func Run(job *Job) error {
 
 type picked struct {
 	path     string
-	offset   float64
 	duration float64
+	loop     bool // клип короче сегмента — нужен зацикленный ввод
 }
 
 func renderVariant(t *tmpl.Template, pool *Pool, outPath string) error {
@@ -120,12 +120,7 @@ func pickSegments(t *tmpl.Template, pool *Pool) []picked {
 	for i, vs := range t.VideoSegments {
 		dur := vs.End - vs.Start
 		clip := pool.Clips[order[i%len(pool.Clips)]]
-		slack := clip.Duration - dur
-		var offset float64
-		if slack > 0 {
-			offset = rand.Float64() * slack
-		}
-		segs[i] = picked{path: clip.Path, offset: offset, duration: dur}
+		segs[i] = picked{path: clip.Path, duration: dur, loop: clip.Duration < dur}
 	}
 	return segs
 }
@@ -136,7 +131,7 @@ type timelineSeg struct {
 	isBlack  bool
 	duration float64
 	path     string
-	offset   float64
+	loop     bool
 }
 
 func totalDuration(t *tmpl.Template) float64 {
@@ -168,7 +163,7 @@ func buildTimeline(t *tmpl.Template, segs []picked) []timelineSeg {
 		tl = append(tl, timelineSeg{
 			duration: segs[i].duration,
 			path:     segs[i].path,
-			offset:   segs[i].offset,
+			loop:     segs[i].loop,
 		})
 		cursor = vs.End
 	}
@@ -195,7 +190,10 @@ func buildArgs(t *tmpl.Template, segs []picked, outPath string) []string {
 				"-i", fmt.Sprintf("color=c=black:s=%dx%d:r=30:d=%.4f", t.Width, t.Height, s.duration),
 			)
 		} else {
-			args = append(args, "-ss", fmt.Sprintf("%.4f", s.offset), "-i", s.path)
+			if s.loop {
+				args = append(args, "-stream_loop", "-1")
+			}
+			args = append(args, "-i", s.path)
 		}
 	}
 
