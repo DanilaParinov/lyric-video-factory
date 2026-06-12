@@ -254,6 +254,10 @@ input:focus { outline: none; border-color: var(--blue); }
         <input type="number" id="n-variants" value="1" min="1" max="99">
       </div>
       <div class="gen-field">
+        <label>Размер шрифта</label>
+        <input type="number" id="font-size" value="72" min="8" max="500">
+      </div>
+      <div class="gen-field">
         <label>Затемнение&ensp;<span id="dim-display" style="color:var(--text)">30%</span></label>
         <input type="range" id="dim-level" min="0" max="100" value="30"
                style="width:100px;accent-color:var(--blue)"
@@ -284,7 +288,7 @@ input:focus { outline: none; border-color: var(--blue); }
                  onchange="uploadSingle('audio', this, 'audio-file', 'audio-msg')">
         </label>
       </div>
-      <div class="file-info" id="audio-file">обнаруживается автоматически</div>
+      <div class="file-info" id="audio-file">не выбран</div>
       <div class="msg" id="audio-msg"></div>
     </div>
 
@@ -392,7 +396,9 @@ function applyTemplate(t) {
   const pct = Math.round((t.dim_level || 0) * 100);
   document.getElementById('dim-level').value = pct;
   document.getElementById('dim-display').textContent = pct + '%';
+  if (t.font?.size)          document.getElementById('font-size').value = t.font.size;
   if (t.audio)               setFileInfo('audio-file', t.audio);
+  else                       resetFileInfo('audio-file', 'не выбран');
   if (t.font && t.font.file) setFileInfo('font-file', t.font.file);
   document.getElementById('no-tmpl-hint').hidden = true;
   document.getElementById('timings-editor').hidden = false;
@@ -439,6 +445,12 @@ function setFileInfo(id, path) {
   el.textContent = path.replace(/\\/g, '/').split('/').pop();
   el.classList.add('loaded');
   el.title = path;
+}
+function resetFileInfo(id, placeholder) {
+  const el = document.getElementById(id);
+  el.textContent = placeholder;
+  el.classList.remove('loaded');
+  el.title = '';
 }
 
 function exportTemplate() {
@@ -517,8 +529,10 @@ async function startJob() {
   if (!state.template) { setMsg('gen-msg', 'Сначала загрузите шаблон', 'err'); return; }
   const n        = parseInt(document.getElementById('n-variants').value) || 1;
   const dimLevel = parseInt(document.getElementById('dim-level').value) / 100;
+  const fontSize = parseInt(document.getElementById('font-size').value) || 72;
   const btn      = document.getElementById('btn-generate');
-  const tmplData = { ...state.template, texts: collectTexts(), video_segments: collectSegs(), dim_level: dimLevel };
+  const tmplData = { ...state.template, texts: collectTexts(), video_segments: collectSegs(), dim_level: dimLevel,
+                     font: { ...state.template.font, size: fontSize } };
   setMsg('gen-msg', '', '');
   btn.disabled = true;
   try {
@@ -700,6 +714,8 @@ async function loadPool() {
 }
 
 // ── Server control ─────────────────────────────────
+window.addEventListener('pagehide', () => navigator.sendBeacon('/api/shutdown'));
+
 async function stopServer() {
   if (!confirm('Остановить сервер?')) return;
   try {
