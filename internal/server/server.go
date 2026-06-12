@@ -52,6 +52,7 @@ func (s *Server) Run() error {
 
 	mux.HandleFunc("POST /api/upload", s.handleUpload)
 	mux.HandleFunc("GET /api/template", s.handleGetTemplate)
+	mux.HandleFunc("POST /api/template", s.handleParseTemplate)
 	mux.HandleFunc("GET /api/pool", s.handlePool)
 	mux.HandleFunc("DELETE /api/pool", s.handleClearPool)
 	mux.HandleFunc("DELETE /api/pool/clip", s.handleDeleteClip)
