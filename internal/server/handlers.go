@@ -145,9 +145,7 @@ func (s *Server) handleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if t.Audio == "" {
-		t.Audio = tmpl.FindAudio(filepath.Join(uploadDir, "audio"), inputDir)
-	}
+	resolveAudio(t)
 	jsonResp(w, http.StatusOK, t)
 }
 
@@ -162,10 +160,21 @@ func (s *Server) handleParseTemplate(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	resolveAudio(t)
+	jsonResp(w, http.StatusOK, t)
+}
+
+// resolveAudio проверяет, что аудиофайл из шаблона существует на диске.
+// Если нет — пробует найти аудио автоматически; если и там ничего, оставляет пустым.
+func resolveAudio(t *tmpl.Template) {
+	if t.Audio != "" {
+		if _, err := os.Stat(t.Audio); err != nil {
+			t.Audio = "" // файл не найден — сбрасываем, пробуем autodiscover
+		}
+	}
 	if t.Audio == "" {
 		t.Audio = tmpl.FindAudio(filepath.Join(uploadDir, "audio"), inputDir)
 	}
-	jsonResp(w, http.StatusOK, t)
 }
 
 // --- POST /api/jobs ---
