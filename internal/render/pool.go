@@ -38,7 +38,7 @@ func LoadPool(dir string) (*Pool, error) {
 		path := filepath.Join(dir, e.Name())
 		dur, err := ProbeDuration(path)
 		if err != nil {
-			return nil, fmt.Errorf("ffprobe %s: %w", e.Name(), err)
+			continue // пропускаем нечитаемый файл, не ломаем весь пул
 		}
 		p.Clips = append(p.Clips, Clip{Path: path, Duration: dur})
 	}

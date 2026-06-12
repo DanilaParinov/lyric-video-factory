@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -45,8 +44,8 @@ func (s *Server) Run() error {
 	}
 
 	// Инициализируем пул из обеих директорий
-	s.pool = newPoolManager(inputDir, filepath.Join(uploadDir, "video"))
-	log.Printf("пул: %d клип(ов) загружено", s.pool.Len())
+	s.pool = newPoolManager()
+	log.Printf("пул инициализирован пустым")
 
 	mux := http.NewServeMux()
 

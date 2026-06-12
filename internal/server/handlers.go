@@ -21,8 +21,21 @@ func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, map[string]string{"status": "ok"})
 	go func() {
 		time.Sleep(150 * time.Millisecond)
+		cleanupDir(filepath.Join(uploadDir, "audio"))
 		os.Exit(0)
 	}()
+}
+
+func cleanupDir(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 // --- POST /api/upload ---
@@ -337,6 +350,21 @@ func (s *Server) runJob(job *Job) {
 	}
 	job.setDone(results)
 	log.Printf("job %s: готово, %d файл(ов)", job.ID, len(results))
+	s.cleanupUploadedClips()
+}
+
+// cleanupUploadedClips удаляет с диска и из пула видеофайлы из uploads/video.
+// Файлы из input/ не трогаются — они являются постоянной библиотекой.
+func (s *Server) cleanupUploadedClips() {
+	videoUploadDir := filepath.Clean(filepath.Join(uploadDir, "video"))
+	for _, clip := range s.pool.Entries() {
+		if filepath.Dir(filepath.Clean(clip.Path)) != videoUploadDir {
+			continue
+		}
+		os.Remove(clip.Path)
+		s.pool.Remove(filepath.Base(clip.Path))
+		log.Printf("удалён загруженный клип: %s", filepath.Base(clip.Path))
+	}
 }
 
 // --- helpers ---
