@@ -24,7 +24,7 @@ var videoExts = map[string]bool{
 	".webm": true, ".m4v": true, ".flv": true, ".wmv": true,
 }
 
-// LoadPool сканирует dir, берёт все видеофайлы и измеряет длительность через ffprobe.
+// LoadPool scans dir, collects all video files and measures their duration via ffprobe.
 func LoadPool(dir string) (*Pool, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -38,7 +38,7 @@ func LoadPool(dir string) (*Pool, error) {
 		path := filepath.Join(dir, e.Name())
 		dur, err := ProbeDuration(path)
 		if err != nil {
-			continue // пропускаем нечитаемый файл, не ломаем весь пул
+			continue // skip unreadable file; don't break the whole pool
 		}
 		p.Clips = append(p.Clips, Clip{Path: path, Duration: dur})
 	}
@@ -54,7 +54,7 @@ type ffprobeOut struct {
 	} `json:"format"`
 }
 
-// ProbeDuration возвращает длительность видеофайла в секундах через ffprobe.
+// ProbeDuration returns the duration of a video file in seconds via ffprobe.
 func ProbeDuration(path string) (float64, error) {
 	out, err := exec.Command("ffprobe",
 		"-v", "quiet",

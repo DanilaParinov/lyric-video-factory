@@ -7,15 +7,15 @@ import (
 	"lyric-video-factory/internal/render"
 )
 
-// PoolManager хранит рабочий список клипов в памяти.
-// Пул не привязан к содержимому директорий — пользователь сам решает, что в нём есть.
-// Физического удаления файлов не происходит никогда.
+// PoolManager holds the working clip list in memory.
+// The pool is not tied to directory contents — the user decides what's in it.
+// Files are never physically deleted.
 type PoolManager struct {
 	mu    sync.RWMutex
 	clips []render.Clip
 }
 
-// newPoolManager создаёт менеджер и инициализирует пул из переданных директорий.
+// newPoolManager creates a manager and seeds the pool from the given directories.
 func newPoolManager(dirs ...string) *PoolManager {
 	pm := &PoolManager{}
 	for _, dir := range dirs {
@@ -30,7 +30,7 @@ func newPoolManager(dirs ...string) *PoolManager {
 	return pm
 }
 
-// unsafeAdd добавляет клип без блокировки (вызывать под pm.mu.Lock).
+// unsafeAdd adds a clip without locking (must be called with pm.mu held).
 func (pm *PoolManager) unsafeAdd(c render.Clip) {
 	name := filepath.Base(c.Path)
 	for _, existing := range pm.clips {
@@ -41,14 +41,14 @@ func (pm *PoolManager) unsafeAdd(c render.Clip) {
 	pm.clips = append(pm.clips, c)
 }
 
-// Add добавляет клип в пул (потокобезопасно, дубликаты по имени пропускаются).
+// Add adds a clip to the pool (thread-safe; duplicates by filename are ignored).
 func (pm *PoolManager) Add(c render.Clip) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	pm.unsafeAdd(c)
 }
 
-// Remove удаляет клип из пула по имени файла. Возвращает true если клип найден.
+// Remove deletes a clip from the pool by filename. Returns true if the clip was found.
 func (pm *PoolManager) Remove(name string) bool {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -61,7 +61,7 @@ func (pm *PoolManager) Remove(name string) bool {
 	return false
 }
 
-// Clear удаляет все клипы из пула. Возвращает количество удалённых.
+// Clear removes all clips from the pool. Returns the number of clips removed.
 func (pm *PoolManager) Clear() int {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -70,7 +70,7 @@ func (pm *PoolManager) Clear() int {
 	return n
 }
 
-// Entries возвращает копию текущего списка клипов.
+// Entries returns a copy of the current clip list.
 func (pm *PoolManager) Entries() []render.Clip {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -79,7 +79,7 @@ func (pm *PoolManager) Entries() []render.Clip {
 	return out
 }
 
-// AsPool возвращает *render.Pool для использования при рендеринге.
+// AsPool returns a *render.Pool ready for use during rendering.
 func (pm *PoolManager) AsPool() *render.Pool {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -88,7 +88,7 @@ func (pm *PoolManager) AsPool() *render.Pool {
 	return &render.Pool{Clips: clips}
 }
 
-// Len возвращает количество клипов в пуле.
+// Len returns the number of clips in the pool.
 func (pm *PoolManager) Len() int {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()

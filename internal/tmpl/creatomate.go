@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// cmDoc — минимальная структура Creatomate JSON для импорта.
+// cmDoc is the minimal Creatomate JSON structure needed for import.
 type cmDoc struct {
 	Width    int         `json:"width"`
 	Height   int         `json:"height"`
@@ -18,25 +18,24 @@ type cmDoc struct {
 type cmElement struct {
 	Type      string   `json:"type"`
 	Track     int      `json:"track"`
-	Time      *float64 `json:"time"` // nil = следует сразу за предыдущим элементом трека
+	Time      *float64 `json:"time"` // nil = follows immediately after the previous element on the same track
 	Duration  float64  `json:"duration"`
 	Text      string   `json:"text"`
 	Y         string   `json:"y"`
 	FontSize  string   `json:"font_size"`
 	FillColor string   `json:"fill_color"`
-	// shape-поля
+	// shape fields
 	Width   string `json:"width"`
 	Height  string `json:"height"`
 	Opacity string `json:"opacity"`
 }
 
-// ImportCreatomate читает Creatomate JSON и конвертирует в нативный Template.
+// ImportCreatomate reads a Creatomate JSON file and converts it to a native Template.
 //
-// Что берём: размер холста, тайминги текстов и видео-сегментов, позицию текста,
-// цвет и размер шрифта.
-// Что НЕ берём: source UUID (нет локального файла), audio, shape-элементы.
+// Imported: canvas size, text and video-segment timings, text position, font color and size.
+// Not imported: source UUIDs (no local file), audio, shape elements.
 //
-// После импорта нужно вручную заполнить Font.File и Audio.
+// After import, Font.File and Audio must be filled in manually.
 func ImportCreatomate(path string) (*Template, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -55,8 +54,8 @@ func convertCreatomate(doc *cmDoc) (*Template, error) {
 		Height: doc.Height,
 	}
 
-	// Накопленное время по трекам: если у элемента нет поля time,
-	// он начинается там, где закончился предыдущий элемент того же трека.
+	// Accumulated time per track: if an element has no time field,
+	// it starts where the previous element on the same track ended.
 	trackCursor := map[int]float64{}
 	var firstText *cmElement
 
@@ -83,21 +82,20 @@ func convertCreatomate(doc *cmDoc) (*Template, error) {
 			t.Texts = append(t.Texts, TextCue{Text: el.Text, Start: start, End: end})
 
 		case "shape":
-			// Полноэкранный прямоугольник с opacity — overlay затемнения
+			// Full-screen rectangle with opacity — dim overlay
 			if el.Width == "100%" && el.Height == "100%" && el.Opacity != "" {
 				if v, err := parsePercent(el.Opacity); err == nil {
 					t.DimLevel = v / 100
 				}
 			}
 		}
-		// "audio" — пропускаем
+		// "audio" — skipped
 	}
 
-	// Стиль и позиция из первого text-элемента
+	// Style and position from the first text element
 	if firstText != nil {
-		// В Creatomate y_anchor="0%" означает, что y — верх bounding box.
-		// Мы сохраняем как text_baseline_y (приближение); при необходимости
-		// пользователь корректирует вручную.
+		// In Creatomate y_anchor="0%" means y is the top of the bounding box.
+		// We store it as text_baseline_y (approximation); the user can adjust manually if needed.
 		t.TextBaselineY = firstText.Y
 		t.Font.Color = firstText.FillColor
 		if sz, err := parseVmin(firstText.FontSize, doc.Width, doc.Height); err == nil {
@@ -110,8 +108,8 @@ func convertCreatomate(doc *cmDoc) (*Template, error) {
 	return t, nil
 }
 
-// parseVmin конвертирует CSS-значение "5 vmin" → пиксели относительно холста.
-// Также принимает чистое число (считается пикселями).
+// parseVmin converts a CSS value like "5 vmin" to pixels relative to the canvas.
+// Also accepts a plain number, which is treated as pixels.
 func parseVmin(s string, w, h int) (int, error) {
 	s = strings.TrimSpace(s)
 	if strings.HasSuffix(s, "vmin") {
