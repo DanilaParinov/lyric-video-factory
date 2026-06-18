@@ -23,7 +23,7 @@ type Job struct {
 	Concurrency int // 0 = runtime.NumCPU()
 }
 
-// Run генерирует N вариантов параллельно.
+// Run generates N variants in parallel.
 func Run(job *Job) error {
 	if err := os.MkdirAll(job.OutputDir, 0755); err != nil {
 		return fmt.Errorf("создаю output dir: %w", err)
@@ -73,7 +73,7 @@ func Run(job *Job) error {
 type picked struct {
 	path     string
 	duration float64
-	loop     bool // клип короче сегмента — нужен зацикленный ввод
+	loop     bool // clip is shorter than the segment — looped input required
 }
 
 func renderVariant(t *tmpl.Template, pool *Pool, outPath string) error {
@@ -99,7 +99,7 @@ func renderVariant(t *tmpl.Template, pool *Pool, outPath string) error {
 	return nil
 }
 
-// lastLines возвращает последние n строк из s (хвост stderr обычно содержит суть ошибки).
+// lastLines returns the last n lines of s (stderr tail usually contains the root cause).
 func lastLines(s string, n int) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -112,8 +112,8 @@ func lastLines(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// pickSegments случайно распределяет клипы из пула по сегментам шаблона.
-// Клипы перемешиваются, чтобы в одном варианте реже повторялись одинаковые.
+// pickSegments randomly distributes pool clips across the template's video segments.
+// Clips are shuffled so the same clip is less likely to repeat within one variant.
 func pickSegments(t *tmpl.Template, pool *Pool) []picked {
 	order := rand.Perm(len(pool.Clips))
 	segs := make([]picked, len(t.VideoSegments))
@@ -149,8 +149,8 @@ func totalDuration(t *tmpl.Template) float64 {
 	return d
 }
 
-// buildTimeline строит полный список сегментов от 0 до totalDuration,
-// заполняя пробелы (интро, аутро, зазоры между сегментами) чёрным фоном.
+// buildTimeline builds the full segment list from 0 to totalDuration,
+// filling gaps (intro, outro, gaps between segments) with black.
 func buildTimeline(t *tmpl.Template, segs []picked) []timelineSeg {
 	totalDur := totalDuration(t)
 	var tl []timelineSeg
@@ -182,7 +182,7 @@ func buildArgs(t *tmpl.Template, segs []picked, outPath string) []string {
 
 	args := []string{"-y", "-loglevel", "error"}
 
-	// Входные файлы: чёрные клипы через lavfi, видео-клипы с seek-offset
+	// Inputs: black clips via lavfi, video clips with seek offset
 	for _, s := range tl {
 		if s.isBlack {
 			args = append(args,
@@ -220,10 +220,10 @@ func buildArgs(t *tmpl.Template, segs []picked, outPath string) []string {
 	return args
 }
 
-// buildFC строит строку filter_complex:
-// 1. нормализация каждого сегмента (обрезка по длине, масштаб, fps, SAR)
-// 2. concat всех сегментов в [base]
-// 3. цепочка drawtext с enable-выражениями по таймингам лирики
+// buildFC builds the filter_complex string:
+// 1. normalise each segment (trim to length, scale, fps, SAR)
+// 2. concat all segments into [base]
+// 3. drawtext chain with enable expressions keyed to lyric timings
 func buildFC(t *tmpl.Template, tl []timelineSeg) string {
 	var sb strings.Builder
 	labels := make([]string, len(tl))
@@ -233,23 +233,23 @@ func buildFC(t *tmpl.Template, tl []timelineSeg) string {
 		labels[i] = label
 
 		if s.isBlack {
-			// Чёрный клип: только обрезаем по длине и нормализуем
+			// Black clip: trim to length and normalise
 			fmt.Fprintf(&sb,
 				"[%d:v]trim=duration=%.4f,fps=30,setsar=1%s;\n",
 				i, s.duration, label)
 		} else {
-			// Видеоклип: обрезаем, масштабируем в размер холста с паддингом (letterbox)
+			// Video clip: trim, scale to canvas with letterbox padding
 			fmt.Fprintf(&sb,
 				"[%d:v]trim=duration=%.4f,setpts=PTS-STARTPTS,fps=30,scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black,setsar=1%s;\n",
 				i, s.duration, t.Width, t.Height, t.Width, t.Height, label)
 		}
 	}
 
-	// concat всех сегментов
+	// concat all segments
 	sb.WriteString(strings.Join(labels, ""))
 	fmt.Fprintf(&sb, "concat=n=%d:v=1:a=0[base];\n", len(tl))
 
-	// Затемнение поверх видео (colorchannelmixer умножает каждый канал на 1-dim)
+	// Dim overlay (colorchannelmixer multiplies each channel by 1-dim)
 	videoOut := "[base]"
 	if t.DimLevel > 0 {
 		m := 1.0 - t.DimLevel
@@ -257,8 +257,8 @@ func buildFC(t *tmpl.Template, tl []timelineSeg) string {
 		videoOut = "[dimmed]"
 	}
 
-	// drawtext-цепочка: каждый текст активен в своём временном окне
-	// enable=gte(t\,START)*lte(t\,END) — \, экранирует запятую в парсере FFmpeg-фильтров
+	// drawtext chain: each cue is active within its time window
+	// enable=gte(t\,START)*lte(t\,END) — \, escapes the comma in FFmpeg's filter parser
 	baseY := t.BaselineYExpr()
 	sb.WriteString(videoOut)
 	for i, tc := range t.Texts {

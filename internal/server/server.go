@@ -43,7 +43,7 @@ func (s *Server) Run() error {
 		}
 	}
 
-	// Инициализируем пул из обеих директорий
+	// pool starts empty; clips are added via uploads or the API
 	s.pool = newPoolManager()
 	log.Printf("пул инициализирован пустым")
 

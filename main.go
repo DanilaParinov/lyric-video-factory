@@ -27,7 +27,7 @@ const (
 func main() {
 	checkBinaries()
 
-	// Без аргументов или с аргументом "serve" — запускаем HTTP-сервер
+	// No args or "serve" — start the HTTP server
 	if len(os.Args) <= 1 || os.Args[1] == "serve" {
 		addr := ":8080"
 		if len(os.Args) > 2 {
@@ -43,7 +43,7 @@ func main() {
 		return
 	}
 
-	// CLI-режим: lyric-video-factory template.json [N]
+	// CLI mode: lyric-video-factory template.json [N]
 	templatePath := defaultTemplate
 	n := 1
 

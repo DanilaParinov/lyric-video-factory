@@ -72,9 +72,9 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		jsonErr(w, "записываю файл: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	dst.Close() // закрываем до вызова ffprobe
+	dst.Close() // close before calling ffprobe
 
-	// Видеоклипы сразу добавляем в пул
+	// Video clips are added to the pool immediately
 	if fileType == "video" {
 		dur, _ := render.ProbeDuration(dstPath)
 		s.pool.Add(render.Clip{Path: dstPath, Duration: dur})
@@ -141,8 +141,8 @@ func (s *Server) handleDeleteClip(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, map[string]string{"removed": name})
 }
 
-// --- GET /api/template  (загрузить по пути на диске) ---
-// --- POST /api/template (распарсить сырой JSON из тела) ---
+// --- GET /api/template  (load by path on disk) ---
+// --- POST /api/template (parse raw JSON from request body) ---
 
 func (s *Server) handleGetTemplate(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
@@ -178,12 +178,12 @@ func (s *Server) handleParseTemplate(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, t)
 }
 
-// resolveAudio проверяет, что аудиофайл из шаблона существует на диске.
-// Если нет — пробует найти аудио автоматически; если и там ничего, оставляет пустым.
+// resolveAudio checks that the audio file referenced by the template exists on disk.
+// If not, tries to find audio automatically; leaves it empty if nothing is found.
 func resolveAudio(t *tmpl.Template) {
 	if t.Audio != "" {
 		if _, err := os.Stat(t.Audio); err != nil {
-			t.Audio = "" // файл не найден — сбрасываем, пробуем autodiscover
+			t.Audio = "" // file not found — reset and attempt auto-discovery
 		}
 	}
 	if t.Audio == "" {
@@ -194,8 +194,8 @@ func resolveAudio(t *tmpl.Template) {
 // --- POST /api/jobs ---
 
 type createJobReq struct {
-	Template     string         `json:"template"`      // путь к файлу; либо template_data
-	TemplateData *tmpl.Template `json:"template_data"` // инлайн-шаблон (приоритет над template)
+	Template     string         `json:"template"`      // path to file; or use template_data
+	TemplateData *tmpl.Template `json:"template_data"` // inline template (takes priority over template)
 	N            int            `json:"n"`
 	DimLevel     float64        `json:"dim_level"`
 }
@@ -293,7 +293,7 @@ func (s *Server) handleDownloadResult(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(outputDir, id, file))
 }
 
-// --- фоновое выполнение ---
+// --- background execution ---
 
 func (s *Server) runJob(job *Job) {
 	job.setRunning()
@@ -353,8 +353,8 @@ func (s *Server) runJob(job *Job) {
 	s.cleanupUploadedClips()
 }
 
-// cleanupUploadedClips удаляет с диска и из пула видеофайлы из uploads/video.
-// Файлы из input/ не трогаются — они являются постоянной библиотекой.
+// cleanupUploadedClips removes video files in uploads/video from disk and from the pool.
+// Files in input/ are not touched — they are a permanent library.
 func (s *Server) cleanupUploadedClips() {
 	videoUploadDir := filepath.Clean(filepath.Join(uploadDir, "video"))
 	for _, clip := range s.pool.Entries() {

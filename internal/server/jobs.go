@@ -18,8 +18,8 @@ const (
 	StatusError   JobStatus = "error"
 )
 
-// Job хранит состояние одной задачи генерации.
-// Мутабельные поля защищены mu; читать через Snapshot().
+// Job holds the state of a single generation task.
+// Mutable fields are protected by mu; read via Snapshot().
 type Job struct {
 	mu           sync.RWMutex
 	ID           string
@@ -68,7 +68,7 @@ func (j *Job) setError(msg string) {
 	j.mu.Unlock()
 }
 
-// JobView — сериализуемый снимок задачи для JSON-ответов.
+// JobView is a serialisable snapshot of a job for JSON responses.
 type JobView struct {
 	ID        string    `json:"id"`
 	Status    JobStatus `json:"status"`
@@ -80,7 +80,7 @@ type JobView struct {
 	Results   []string  `json:"results,omitempty"`
 }
 
-// JobStore — потокобезопасное хранилище задач в памяти.
+// JobStore is a thread-safe in-memory job store.
 type JobStore struct {
 	mu   sync.RWMutex
 	jobs map[string]*Job
